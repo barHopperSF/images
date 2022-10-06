@@ -1,0 +1,441 @@
+//
+//  NotesViewController.swift
+
+
+import UIKit
+import Foundation
+import SwiftUI
+import CoreText
+
+
+
+
+class NotesViewController: UIViewController, UITextViewDelegate, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+    
+    var userDefault = UserDefaults()
+
+
+    @IBOutlet weak var textView: UITextView!
+    
+    var imagePicker = UIImagePickerController()
+    var pickImage: UIImage!
+
+    var attString = NSAttributedString()
+
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        
+        view.backgroundColor = UIColor.self.init(red: 29/255, green: 29/255, blue: 29/255, alpha: 1.0)
+
+        setNavigationBar()
+
+ 
+        textView.delegate = self
+        self.isModalInPresentation = true
+        textView.keyboardDismissMode = .interactive  // .onDrag
+        
+        textView.becomeFirstResponder()
+        
+        textView.textColor = UIColor.self.init(red: 222/255, green: 215/255, blue: 191/255, alpha: 1.0)
+        textView.font = UIFont(name: "Trebuchet MS", size: 19)
+        textView.backgroundColor = UIColor.clear
+        textView.tintColor = UIColor.self.init(red: 141/255, green: 124/255, blue: 85/255, alpha: 1.0)
+        
+        textView.layer.masksToBounds = false
+
+
+      
+        let attributedText = self.getAttributedTextFromUserDefault(key: myNotes)
+        textView.attributedText = attributedText.attributedStringWithResizedImages(with: textView.bounds.size.width - 20) //textView.bounds.size.width - 20
+ 
+ 
+        textView.alwaysBounceVertical = true
+
+
+    NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow), name: UIResponder.keyboardWillShowNotification, object: nil)
+    NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide), name: UIResponder.keyboardWillHideNotification, object: nil)
+
+        
+    }
+
+    
+    @objc func keyboardWillShow(notification: NSNotification) {
+      if ((notification.userInfo?[UIResponder.keyboardFrameBeginUserInfoKey] as? NSValue)?.cgRectValue) != nil {
+
+          let userInfo = notification.userInfo!
+          var keyboardFrame:CGRect = (userInfo[UIResponder.keyboardFrameEndUserInfoKey] as! NSValue).cgRectValue
+          keyboardFrame = self.view.convert(keyboardFrame, from: nil)
+
+          var contentInset:UIEdgeInsets = self.textView.contentInset
+            contentInset.bottom = keyboardFrame.size.height
+            self.textView.contentInset = contentInset
+      }
+  }
+
+     @objc func keyboardWillHide(notification: NSNotification) {
+      if ((notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue) != nil {
+          let contentInset:UIEdgeInsets = UIEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
+          self.textView.contentInset = contentInset
+      }
+         
+     }
+
+    
+    override var inputAccessoryView: UIView? {
+        get {
+            //Set up the container
+            let containerView = UIView()
+            containerView.backgroundColor = UIColor.self.init(red: 39/255, green: 39/255, blue: 39/255, alpha: 1.0)
+            containerView.frame = CGRect(x: 0, y: 0, width: view.frame.width, height: 50)
+
+
+            let arrow = UIImageView(image: UIImage(named: "closeXbuttonSmall"))
+            containerView.addSubview(arrow)
+            let tap = UITapGestureRecognizer(target: self, action: #selector(updateUI))
+            tap.numberOfTapsRequired = 1
+            arrow.addGestureRecognizer(tap)
+            arrow.isUserInteractionEnabled = true
+            arrow.translatesAutoresizingMaskIntoConstraints = false
+            arrow.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -20).isActive = true
+            arrow.centerYAnchor.constraint(equalTo: containerView.centerYAnchor).isActive = true
+
+
+            let cameraButton = UIImageView(image: UIImage(named: "cameraKeyboard"))
+            containerView.addSubview(cameraButton)
+            let tapCamera = UITapGestureRecognizer(target: self, action: #selector(openCamera))
+            tapCamera.numberOfTapsRequired = 1
+            cameraButton.addGestureRecognizer(tapCamera)
+            cameraButton.isUserInteractionEnabled = true
+            cameraButton.translatesAutoresizingMaskIntoConstraints = false
+            cameraButton.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 20).isActive = true
+            cameraButton.centerYAnchor.constraint(equalTo: containerView.centerYAnchor).isActive = true
+            cameraButton.heightAnchor.constraint(equalToConstant: CGFloat(37)).isActive = true
+            cameraButton.widthAnchor.constraint(equalToConstant: CGFloat(37)).isActive = true
+
+
+            return containerView
+        }
+    }
+    
+
+    @objc func updateUI() {
+
+    }
+
+
+    @objc func openCamera() {
+        
+        let alertVC = PMAlertController(title: "select a photo", description: "add a photo of your cocktail to your notes!", image: UIImage(named: ""), style: .alert)
+        alertVC.addAction1(PMAlertAction1(title: "gallery", style: .default, action: { () -> Void in
+            
+            if UIImagePickerController.isSourceTypeAvailable(.photoLibrary) {
+                self.imagePicker.delegate = self
+                self.imagePicker.sourceType = .photoLibrary
+                self.imagePicker.allowsEditing = false
+
+                self.present( self.imagePicker, animated: true, completion: nil)
+                   }
+        }))
+
+        alertVC.addAction1(PMAlertAction1(title: "camera", style: .default, action:  { () in
+            if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                self.imagePicker.delegate = self
+                self.imagePicker.sourceType = .camera
+                self.imagePicker.allowsEditing = false
+
+                self.present( self.imagePicker, animated: true, completion: nil)
+                   }
+        }))
+
+        alertVC.addAction1(PMAlertAction1(title: "cancel", style: .cancel, action:  { () in
+
+        }))
+
+
+        alertVC.alertTitle.font = UIFont(name: "Elkwood", size: 26)
+
+        alertVC.alertDescription.textColor = UIColor.self.init(red: 222/255, green: 215/255, blue: 191/255, alpha: 1.0)
+        alertVC.alertDescription.font = UIFont(name: "Elkwood", size: 18)
+        alertVC.alertDescription.textSpacing()
+
+        present(alertVC, animated: true, completion: nil)
+
+   }
+    
+
+    
+      func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+
+          pickImage = info[UIImagePickerController.InfoKey.originalImage] as? UIImage
+
+          //create and NSTextAttachment and add your image to it.
+          let attachment = NSTextAttachment()
+          attachment.image = pickImage
+
+          //calculate new size.  (-20 because I want to have a litle space on the right of picture)
+          let newImageWidth = (textView.bounds.size.width - 15 )
+          let scale = newImageWidth/pickImage.size.width
+          let newImageHeight = pickImage.size.height * scale - 20
+
+          //resize this
+          attachment.bounds = CGRect.init(x: 0, y: 0, width: newImageWidth, height: newImageHeight)
+
+          //put your NSTextAttachment into and attributedString
+          attString = NSAttributedString(attachment: attachment)
+
+          //add this attributed string to the current position.
+          textView.textStorage.insert(attString, at: textView.selectedRange.location)
+          textView.selectedRange.location += 1
+  
+          textView.textColor = UIColor.self.init(red: 222/255, green: 215/255, blue: 191/255, alpha: 1.0)
+          textView.font = UIFont(name: "Trebuchet MS", size: 19)
+          textView.backgroundColor = UIColor.clear
+          textView.tintColor = UIColor.self.init(red: 141/255, green: 124/255, blue: 85/255, alpha: 1.0)
+          textView.keyboardDismissMode = .interactive
+
+          picker.dismiss(animated: true, completion: nil)
+
+    }
+
+    func saveAttributedTextToUserDefault(attributedText: NSAttributedString, key: String) {
+        
+        do {
+            let data = try attributedText.data(from: NSRange(location: 0, length: attributedText.length), documentAttributes: [.documentType: NSAttributedString.DocumentType.rtfd])
+   
+            userDefault.set(data, forKey: myNotes)
+        } catch {
+            print(error)
+        }
+    }
+    
+    func getAttributedTextFromUserDefault(key: String) -> NSAttributedString {
+        
+        if let dataValue = userDefault.data(forKey: myNotes) {
+            do {
+                let attributeText = try NSAttributedString(data: dataValue, documentAttributes: nil)
+                return attributeText
+            } catch {
+                print("error: ", error)
+            } 
+
+        }
+
+
+        return NSAttributedString()
+    }
+
+    func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+        
+           picker.dismiss(animated: true, completion: nil)
+       }
+
+    @objc func saveText() {
+  
+        self.saveAttributedTextToUserDefault(attributedText: textView.attributedText, key: myNotes)
+        dismiss(animated: true, completion: nil)
+      
+    }
+
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(true)
+    
+    }
+    
+    
+    
+    func setNavigationBar() {
+        
+        let screenSize: CGRect = UIScreen.main.bounds
+        let navBar = UINavigationBar(frame: CGRect(x: 0, y: 0, width: screenSize.width, height: 44))
+        
+        navBar.sizeToFit()
+        navBar.tintColor = UIColor.self.init(red: 34/255, green: 34/255, blue: 34/255, alpha: 1.0)
+        navBar.barTintColor = UIColor.self.init(red: 34/255, green: 34/255, blue: 34/255, alpha: 1.0)
+        navBar.isTranslucent = false
+        
+        navBar.layer.shadowColor = UIColor.self.init(red: 0/255, green: 0/255, blue: 0/255, alpha: 0.5).cgColor
+        navBar.layer.shadowOffset = CGSize(width: 0.0, height: 0.8)
+        navBar.layer.shadowRadius = 1.0
+        navBar.layer.shadowOpacity = 1.0
+        navBar.layer.masksToBounds = false
+        
+        let navItem = UINavigationItem()
+        navItem.title = "my notes"
+        navBar.titleTextAttributes = [NSAttributedString.Key.font: UIFont(name: "Elkwood", size: 26)!, NSAttributedString.Key.foregroundColor : UIColor.self.init(red: 141/255, green: 124/255, blue: 85/255, alpha: 1.0), NSAttributedString.Key.kern: 1.5]
+        
+        let doneButton = UIBarButtonItem(image: UIImage(named: "closeXbuttonSmall"), style: .plain, target: nil, action: #selector(discard))
+        navItem.leftBarButtonItem = doneButton
+        navItem.leftBarButtonItem?.setTitleTextAttributes([NSAttributedString.Key.font: UIFont(name: "Elkwood", size: 17)!], for: UIControl.State.normal)
+        doneButton.tintColor = UIColor.self.init(red: 141/255, green: 124/255, blue: 85/255, alpha: 1.0)
+        navBar.setItems([navItem], animated: true)
+     
+        
+        let saveButton = UIBarButtonItem()
+        navItem.rightBarButtonItem = saveButton
+        navItem.rightBarButtonItem = UIBarButtonItem.menuButton(self, action: #selector(saveText), imageName: "saveButton")
+        navItem.rightBarButtonItem?.setTitleTextAttributes([NSAttributedString.Key.font: UIFont(name: "Elkwood", size: 17)!], for: UIControl.State.normal)
+        saveButton.tintColor = UIColor.self.init(red: 141/255, green: 124/255, blue: 85/255, alpha: 1.0)
+        navBar.setItems([navItem], animated: true)
+
+        
+        //navTopBackground.backgroundColor = UIColor.self.init(red: 34/255, green: 34/255, blue: 34/255, alpha: 1.0)
+        
+        self.view.addSubview(navBar)
+        
+        navBar.translatesAutoresizingMaskIntoConstraints = false
+        
+        if #available(iOS 11.0, *) {
+            let guide = self.view.safeAreaLayoutGuide
+            navBar.trailingAnchor.constraint(equalTo: guide.trailingAnchor).isActive = true
+            navBar.leadingAnchor.constraint(equalTo: guide.leadingAnchor).isActive = true
+            //navBar.bottomAnchor.constraint(equalTo: guide.bottomAnchor).isActive = true
+            navBar.topAnchor.constraint(equalTo: guide.topAnchor).isActive = true
+        } else {
+            NSLayoutConstraint(item: navBar, attribute: .leading, relatedBy: .equal, toItem: view, attribute: .leading, multiplier: 1.0, constant: 0).isActive = true
+            NSLayoutConstraint(item: navBar, attribute: .trailing, relatedBy: .equal, toItem: view, attribute: .trailing, multiplier: 1.0, constant: 0).isActive = true
+            NSLayoutConstraint(item: navBar, attribute: .bottom, relatedBy: .equal, toItem: view, attribute: .bottom, multiplier: 1.0, constant: 0).isActive = true
+            NSLayoutConstraint(item: navBar, attribute: .top, relatedBy: .equal, toItem: view, attribute: .top, multiplier: 1.0, constant: 0).isActive = true
+        }
+        
+        
+    }
+    
+
+    
+     @objc func discard() {
+   
+             
+             let alertVC = PMAlertController(title: "discard changes?", description: "you will lose your last notes changes!", image: UIImage(named: ""), style: .alert)
+             alertVC.addAction(PMAlertAction(title: "cancel", style: .cancel, action: { () -> Void in
+             }))
+             alertVC.addAction(PMAlertAction(title: "discard", style: .default, action:  { () in
+                 //self.performSegue(withIdentifier: "webProtocol", sender: self)
+                 self.dismiss(animated: true, completion: nil)
+             }))
+
+             alertVC.alertDescription.textColor = UIColor.self.init(red: 222/255, green: 215/255, blue: 191/255, alpha: 1.0)
+             alertVC.alertDescription.font = UIFont(name: "Elkwood", size: 18)
+             alertVC.alertDescription.textSpacing()
+
+             present(alertVC, animated: true, completion: nil)
+
+             
+         }
+
+}
+
+
+extension UIBarButtonItem {
+
+    static func menuButton(_ target: Any?, action: Selector, imageName: String) -> UIBarButtonItem {
+        let button = UIButton(type: .system)
+        button.setImage(UIImage(named: imageName), for: .normal)
+        button.addTarget(target, action: action, for: .touchUpInside)
+
+        let menuBarItem = UIBarButtonItem(customView: button)
+        menuBarItem.customView?.translatesAutoresizingMaskIntoConstraints = false
+        menuBarItem.customView?.heightAnchor.constraint(equalToConstant: 28).isActive = true
+        menuBarItem.customView?.widthAnchor.constraint(equalToConstant: 65).isActive = true
+
+        return menuBarItem
+    }
+}
+
+
+
+extension NSAttributedString {
+    
+    func attributedStringWithResizedImages(with maxWidth: CGFloat) -> NSAttributedString {
+        
+        let text = NSMutableAttributedString(attributedString: self)
+        text.enumerateAttribute(NSAttributedString.Key.attachment, in: NSMakeRange(0, text.length), options: .init(rawValue: 0), using: { (value, range, stop) in
+               if let attachment = value as? NSTextAttachment {
+                   
+                   let image = attachment.image(forBounds: attachment.bounds, textContainer: NSTextContainer(), characterIndex: range.location)!
+                 
+                   if image.size.width > maxWidth {
+
+                       let newImage =  image.resizeImage(scale: maxWidth/image.size.width)
+                       let newAttribut = NSTextAttachment()
+                       newAttribut.image = newImage
+                       
+                       text.addAttribute(NSAttributedString.Key.attachment, value: newAttribut, range: range)
+                       
+                       //text.addAttributes([NSAttributedString.Key.attachment: newAttribut], range: range)
+                       //attachment.bounds = CGRect.init(x: 0, y: 0, width: newImage.size.width, height: newImage.size.height)
+                     
+                   }
+            
+               }
+           })
+           return text
+    }
+  
+}
+
+extension UIImage {
+    func resizeImage(scale: CGFloat) -> UIImage {
+
+        let newSize = CGSize(width: self.size.width*scale, height: self.size.height*scale)
+        let rect = CGRect(origin: CGPoint.zero, size: newSize)
+
+        UIGraphicsBeginImageContext(newSize)
+        self.draw(in: rect)
+        
+        let newImage = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+  
+        return newImage!
+    }
+
+ 
+    func resizeMyImage(image: UIImage, targetSize: CGSize) -> UIImage {
+       let size = image.size
+       
+       let widthRatio  = targetSize.width  / size.width
+       let heightRatio = targetSize.height / size.height
+       
+       // Figure out what our orientation is, and use that to form the rectangle
+       var newSize: CGSize
+       if(widthRatio > heightRatio) {
+           newSize = CGSize(width: size.width * heightRatio, height: size.height * heightRatio)
+       } else {
+           newSize = CGSize(width: size.width * widthRatio,  height: size.height * widthRatio)
+       }
+       
+       // This is the rect that we've calculated out and this is what is actually used below
+       let rect = CGRect(x: 0, y: 0, width: newSize.width, height: newSize.height)
+       
+       // Actually do the resizing to the rect using the ImageContext stuff
+       UIGraphicsBeginImageContextWithOptions(newSize, false, 1.0)
+       image.draw(in: rect)
+       let newImage = UIGraphicsGetImageFromCurrentImageContext()
+       UIGraphicsEndImageContext()
+       
+       return newImage!
+   }
+    
+    func rotate() -> UIImage {
+        var rotatedImage = UIImage()
+        guard let cgImage = cgImage else {
+            print("could not rotate image")
+            return self
+        }
+        switch imageOrientation {
+        case .right:
+            rotatedImage = UIImage(cgImage: cgImage, scale: scale, orientation: .down)
+        case .down:
+            rotatedImage = UIImage(cgImage: cgImage, scale: scale, orientation: .left)
+        case .left:
+            rotatedImage = UIImage(cgImage: cgImage, scale: scale, orientation: .up)
+        default:
+            rotatedImage = UIImage(cgImage: cgImage, scale: scale, orientation: .right)
+        }
+        
+        return rotatedImage
+    }
+
+}
